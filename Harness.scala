@@ -15,6 +15,8 @@ class Harness {
     "escaped pointer ref" -> NOT_IMPLEMENTED,
     "empty tokens in $ref json-pointer" -> NOT_IMPLEMENTED,
     "schema that uses custom metaschema with with no validation vocabulary" -> NOT_IMPLEMENTED,
+    // The above case was renamed to the following case. We keep the old name for backward compatibility.
+    "schema that uses custom metaschema with no validation vocabulary" -> NOT_IMPLEMENTED,
     "small multiple of large integer" -> NOT_IMPLEMENTED
   )
 
@@ -91,10 +93,20 @@ class Harness {
         return RunSkippedResponse(runRequest.seq, true, Some(NOT_IMPLEMENTED)).asJson.noSpaces
       }
 
+      // The validator finds schemas in the registry by their $id, but
+      // registry schemas aren't guaranteed to have one, so identify them by
+      // the URI they're registered under.
       val registryMap: Map[String, String] = runRequest.testCase.registry
         .flatMap { node =>
-          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
-          node.as[Map[String, Json]].toOption.map { jsonMap => jsonMap.mapValues(_.noSpaces).toMap }
+          node.as[Map[String, Json]].toOption.map { jsonMap =>
+            jsonMap.map { case (uri, schema) =>
+              val identified = schema.asObject match {
+                case Some(obj) if !obj.contains("$id") => Json.fromJsonObject(obj.add("$id", Json.fromString(uri)))
+                case _                                 => schema
+              }
+              uri -> identified.noSpaces
+            }
+          }
         }
         .getOrElse(null)
 
