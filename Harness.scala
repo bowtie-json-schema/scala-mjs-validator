@@ -87,6 +87,11 @@ class Harness {
     }
 
     val runRequest: RunRequest = decodeTo[RunRequest](node)
+    val output = runRequest.output.getOrElse("flag")
+    if (output != "flag") {
+      return RunSkippedResponse(runRequest.seq, message = Some(s"Unsupported output format: $output")).asJson.noSpaces
+    }
+
     try {
       val caseDescription = runRequest.testCase.description
       if (UNSUPPORTED_CASES.contains(caseDescription)) {
@@ -156,7 +161,7 @@ case class DialectRequest(dialect: String)
 case class DialectResponse(ok: Boolean)
 
 @ConfiguredJsonCodec
-case class RunRequest(seq: Json, @JsonKey("case") testCase: TestCase)
+case class RunRequest(seq: Json, @JsonKey("case") testCase: TestCase, output: Option[String] = None)
 
 object RunRequest {
   implicit val config: Configuration = Configuration.default.withSnakeCaseMemberNames.withDefaults
